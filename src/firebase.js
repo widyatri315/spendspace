@@ -52,3 +52,4 @@ const logout = () => {
 };
 
 export { app, auth, db, signInWithGoogle, signInWithGithub, logout };
+export default app;

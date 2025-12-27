@@ -53,7 +53,7 @@ const Login = () => {
       return;
     }
     if (user) {
-      navigate("/");
+      navigate("/incomepopup");
     }
   }, [user, loading, navigate]);
 

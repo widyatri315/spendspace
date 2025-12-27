@@ -42,6 +42,11 @@ const Profile = () => {
             Form Page
           </button>
         </Link>{" "}
+        <Link to={"/incomePage"}>
+          <button className="bg-purple-700 text-white text-xs sm:text-base rounded-full py-2 px-5">
+            Form Page
+          </button>
+        </Link>{" "}
         <button
           onClick={logout}
           className="bg-purple-700 text-white text-xs sm:text-base rounded-full py-2 px-5"

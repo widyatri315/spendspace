@@ -2,7 +2,8 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db, app } from "../firebase.js";
 import IncomePopup from "./incomePopup";
-import { getDatabase, ref, get } from "firebase/database";
+import IncomeUpdatePopup from "./updateIncome";
+import { getDatabase, ref, get, remove, onValue } from "firebase/database";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 
@@ -11,8 +12,14 @@ const formatCurrency = (value) => new Intl.NumberFormat("id-ID", { style: "curre
 function IncomePage() {
   const [user, loading, error] = useAuthState(auth);
   const [incomes, setIncomes] = useState([]);
+  const [openEdit, setOpenEdit] = useState(false);
+  const [selectedIncome, setSelectedIncome] = useState(null);
+  const [selectedIncomeId, setSelectedIncomeId] = useState(null);
   const [userFullName, setUserFullName] = useState("");
   const [showPopup, setShowPopup] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  
   const navigate = useNavigate();
 
   const fetchData = useCallback(async () => {
@@ -39,41 +46,74 @@ function IncomePage() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // fetch display name (ke Firestore users collection) — unchanged
-  useEffect(() => {
-    const fetchUserName = async () => {
-      if (!user) { setUserFullName(""); return; }
-      if (user.displayName) { setUserFullName(user.displayName); return; }
-      try {
-        const q = query(collection(db, "users"), where("uid", "==", user.uid));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const docData = snap.docs[0].data();
-          setUserFullName(docData.fullName || docData.firstName || docData.name || user.email);
-        } else setUserFullName(user.email);
-      } catch (err) { console.error(err); setUserFullName(user.email); }
-    };
-    fetchUserName();
-  }, [user]);
+ useEffect(() => {
+  if (!user) return;
+
+  const db = getDatabase(app);
+  const incomeRef = ref(db, `incomeList/${user.uid}`);
+
+  const unsubscribe = onValue(incomeRef, (snapshot) => {
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      const list = Object.entries(data).map(([id, item]) => ({
+        id,
+        ...item,
+      }));
+      setIncomes(list.reverse());
+    } else {
+      setIncomes([]);
+    }
+  });
+
+  return () => unsubscribe(); // cleanup listener
+}, [user]);
 
   const totalIncome = incomes.reduce((sum, it) => sum + (Number(it.amount) || 0), 0);
   // total income (numeric) from incomes array
 
+  // Pagination state + handlers (if needed in future)
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+
+  const currentIncomes = incomes.slice(
+    indexOfFirstItem,
+    indexOfLastItem
+  );
+
+const totalPages = Math.ceil(incomes.length / itemsPerPage);
+
+  // delete income function
+  const DeleteIncome = async (incomeId) => {
+  const confirmDelete = window.confirm("Yakin ingin menghapus income ini?");
+  if (!confirmDelete) return;
+
+  try {
+    const db = getDatabase(app);
+    const uid = auth.currentUser.uid;
+
+    await remove(ref(db, `incomeList/${uid}/${incomeId}`));
+    alert("Income berhasil dihapus");
+  } catch (error) {
+    console.error(error);
+    alert("Gagal menghapus income");
+  }
+};
 
   return (
-    <div className="min-h-screen p-4 bg-gray-50">
+    <div className="min-h-screen w-full p-6">
       <div className=" mx-auto">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-semibold">Income</h2>
+            <h2 className="text-2xl font-bold">Income</h2>
             <div className="text-sm text-gray-600">
               Hello, {userFullName || user?.email || "User"}
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2s">
             <button
               onClick={() => setShowPopup(true)}
-              className="px-4 py-2 bg-purple-700 text-white rounded-full"
+              className="px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-md text-sm"
             >
               Add Income
             </button>
@@ -116,7 +156,7 @@ function IncomePage() {
                 </tr>
               </thead>
               <tbody>
-                {incomes.map((item) => (
+                {currentIncomes.map((item) => (
                   <tr key={item.id} className="border-b border-default">
                     <td className="px-3 py-2 font-medium ">{item.date}</td>
                     <td className="px-3 py-2">{item.description}</td>
@@ -124,12 +164,17 @@ function IncomePage() {
                     <td className="px-3 py-2 text-right">{formatCurrency(Number(item.amount) || 0)}</td>
                     <td className="px-3 py-2 text-center font-medium">
                       {/* Future: Add edit/delete actions here */}
-                      <button className="mr-2 text-green-500">
-                        ✏️ Edit
+                      <button className="mr-2 text-green-500" 
+                      onClick={() => {
+                        setSelectedIncome(item);
+                        setSelectedIncomeId(item.id);
+                        setOpenEdit(true);
+                      }}><span className="mr-1">✏️</span> Edit
                       </button>
                       ||
-                      <button className="ml-2 text-red-500">
-                        🗑️ Delete
+                      <button className="ml-2 text-red-500" 
+                      onClick={() => DeleteIncome(item.id)}><span className="mr-1">🗑️</span>
+                        Delete
                       </button>
                     </td> 
                   </tr>
@@ -137,6 +182,39 @@ function IncomePage() {
               </tbody>
             </table>
           )}
+          <div className="flex justify-center items-center gap-2 mt-4">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((p) => p - 1)}
+              className="px-3 py-1 border rounded disabled:opacity-50"
+            >
+              Prev
+            </button>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => setCurrentPage(page)}
+                className={`px-3 py-1 rounded border
+                  ${
+                    currentPage === page
+                      ? "bg-orange-500 text-white"
+                      : "bg-white"
+                  }
+                `}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage((p) => p + 1)}
+              className="px-3 py-1 border rounded disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div> 
         </div>
       </div>
 
@@ -150,6 +228,18 @@ function IncomePage() {
           }}
         />
       )}
+      {openEdit && (
+      <IncomeUpdatePopup
+        open={openEdit}
+        incomeData={selectedIncome}
+        incomeId={selectedIncomeId}
+        onClose={() => {
+          setOpenEdit(false);
+          fetchData(); // refresh data setelah update
+          }}
+        />
+      )}
+
     </div>
   );
 }

@@ -4,6 +4,7 @@ import expenseIcon from "../assets/expence.png";
 import incomeIcon from "../assets/income.png";
 import toggle_icon from "../assets/sidebarClose.png";
 import logoutIcon from "../assets/logout.png";
+import homeIcon from "../assets/home.png";
 import { auth, db, logout } from "../firebase";
 
 const Sidebar = () => {
@@ -12,9 +13,9 @@ const Sidebar = () => {
   const [open, setOpen] = useState(true);
 
  const menus = [
-  { title: "Dashboard", path: "/profile" },
+  { title: "Dashboard", src: homeIcon, path: "/dashboard" },
   { title: "Income", src: incomeIcon, path: "/incomePage" },
-  { title: "Expense", src: expenseIcon, path: "/expense" },
+  { title: "Expense", src: expenseIcon, path: "/expensePage" },
 ];
 
  const logoutMenu = 

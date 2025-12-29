@@ -7,6 +7,9 @@ import Profile from "./pages/Profile";
 import IncomePage from "./pages/incomePage";
 import IncomePopup from "./pages/incomePopup";
 import DashboardLayout from "./components/DashboardLayout";
+import ExpensePage from "./pages/expensePage";
+import ExpensePopup from "./pages/expensePopup";
+import Dashboard from "./pages/dashboard";
 
 function App() {
   return (
@@ -15,15 +18,18 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* DASHBOARD PAGES (WITH SIDEBAR) */}
+      {/* DASHBOARD PAGES (WITH SIDEBAR) */
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      }
       <Route element={<DashboardLayout />}>
-      <Route path="/" element={<Login />} />
-          <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/inputprofile" element={<InputProfile />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/incomePage" element={<IncomePage />} />
           <Route path="/incomePopup" element={<IncomePopup />} />
+          <Route path="/expensePage" element={<ExpensePage />} />
+          <Route path="/expensePopup" element={<ExpensePopup />} />
       </Route>
 
       {/* DEFAULT */}

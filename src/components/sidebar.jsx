@@ -22,7 +22,7 @@ const Sidebar = () => {
  { title: "Logout", src: logoutIcon, path: "/login", action: "logout" };
 
   return (
-    <div className={` ${open ? "w-72" : "w-20 "} bg-gray-800 h-screen p-5  pt-8 relative duration-300 flex flex-col`}> 
+    <div className={` ${open ? "w-72" : "w-20 "} bg-gray-800 h-screen p-5  pt-8 relative duration-300 flex flex-col `}> 
       <img
         src={toggle_icon}
         className={`absolute cursor-pointer -right-3 top-9 w-7 border-dark-gray-800 shadow-sm

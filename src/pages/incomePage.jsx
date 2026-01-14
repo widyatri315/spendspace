@@ -15,7 +15,7 @@ function IncomePage() {
   const [openEdit, setOpenEdit] = useState(false);
   const [selectedIncome, setSelectedIncome] = useState(null);
   const [selectedIncomeId, setSelectedIncomeId] = useState(null);
-  const [userFullName, setUserFullName] = useState("");
+  const [fullName, setFullName] = useState("");
   const [showPopup, setShowPopup] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -30,14 +30,23 @@ function IncomePage() {
       }
       const rtdb = getDatabase(app);
       const incomeListRef = ref(rtdb, `incomeList/${user.uid}`); // <-- per-user read
-      const snapshot = await get(incomeListRef);
-      if (snapshot.exists()) {
-        const val = snapshot.val();
-        const list = Object.entries(val).map(([id, item]) => ({ id, ...item }));
-        setIncomes(list.reverse());
-      } else {
-        setIncomes([]);
-      }
+    const snapshot = await get(incomeListRef);
+
+    if (snapshot.exists()) {
+      const val = snapshot.val();
+
+      const list = Object.entries(val).map(([id, item]) => ({
+        id,
+        ...item,
+      }));
+
+      // 🔽 Urutkan berdasarkan tanggal (TERBARU → TERLAMA)
+      list.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      setIncomes(list);
+    } else {
+      setIncomes([]);
+    }
     } catch (err) {
       console.error("Failed to fetch incomes:", err);
     }
@@ -100,13 +109,13 @@ const totalPages = Math.ceil(incomes.length / itemsPerPage);
 };
 
   return (
-    <div className="min-h-screen w-full p-6">
+    <div className="h-full w-full p-6">
       <div className=" mx-auto">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-2xl font-bold">Income</h2>
             <div className="text-sm text-gray-600">
-              Hello, {userFullName || user?.email || "User"}
+              Hello, {fullName || user?.email || "User"}
             </div>
           </div>
 

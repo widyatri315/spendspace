@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, seCallback } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "../firebase";
 import { getDatabase, ref, onValue } from "firebase/database";
+import ExpensePopup from "./expensePopup.jsx"
+import IncomePopup from "./incomePopup.jsx";
 import {
   LineChart,
   Line,
@@ -40,6 +42,8 @@ const calculateMonthlyTotal = (data, month) => {
       : sum;
   }, 0);
 };
+
+ 
 
 /**
  * Persentase aman:
@@ -82,6 +86,10 @@ function Dashboard() {
 
   const [chartData, setChartData] = useState([]);
   const [history, setHistory] = useState([]);
+  const [fullName, setFullName] = useState("");
+  const [showIncomePopup, setShowIncomePopup] = useState(false);
+  const [setExpensePopup, setShowExpensePopup] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
   
 
   /* ========== TOTAL BULAN INI ========== */
@@ -297,7 +305,8 @@ useEffect(() => {
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
+      <h1 className="text-2xl font-bold mb-2">Greetings 👋 {fullName || user?.email || "User"} </h1>
+      <p className="text-sm mb-4"> Dont waste money, save every penny!</p>
 
       <div className="grid grid-cols-3 gap-4">
          {/* BALANCE */}
@@ -323,7 +332,7 @@ useEffect(() => {
             }`}
           >
             {incomePercentage > 0 ? "+" : ""}
-            {incomePercentage}% dibanding bulan lalu
+            {incomePercentage}% compared to last month
           </p>
         </div>
 
@@ -339,7 +348,7 @@ useEffect(() => {
             }`}
           >
             {expensePercentage > 0 ? "+" : ""}
-            {expensePercentage}% dibanding bulan lalu
+            {expensePercentage}% compared to last month
           </p>
         </div>
 
@@ -347,8 +356,13 @@ useEffect(() => {
       </div>
 
       {/* CHART */}
-      <div className="bg-white mt-6 p-4 rounded-lg shadow">
-        <h2 className="font-semibold mb-4">Grafik Keuangan Bulanan</h2>
+    {/* CHART + ACTION BOX */}
+    <div className="mt-6 grid grid-cols-1 lg:grid-cols-4 gap-4">
+      
+      {/* CHART BOX */}
+      <div className="bg-white p-4 rounded-lg shadow lg:col-span-3">
+        <h2 className="font-semibold mb-4">Monthly Financial Chart</h2>
+
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -361,10 +375,31 @@ useEffect(() => {
         </ResponsiveContainer>
       </div>
 
-      <div className="bg-white mt-6 p-4 rounded-lg shadow">
+      {/* ACTION BOX */}
+      <div className="bg-white p-4 rounded-lg shadow flex flex-col gap-3 justify-start">
+        <h3 className="font-semibold text-sm text-gray-600">
+          Quick Action
+        </h3>
+
+        <button
+          onClick={() => setShowExpensePopup(true)}
+          className="px-4 py-2 bg-red-600 text-white rounded text-sm"
+        >
+          + Add Expense
+        </button>
+
+        <button
+          onClick={() => setShowIncomePopup(true)}
+          className="px-4 py-2 bg-green-600 text-white rounded text-sm"
+        >
+          + Add Income
+        </button>
+
+        {/* RECENT TRANSCATION */}
+        <div>
         <h2 className="font-semibold mb-4">Recent Transactions</h2>
 
-        <div className="overflow-x-auto">
+        <div>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-gray-600">
@@ -414,6 +449,10 @@ useEffect(() => {
           </table>
         </div>
       </div>
+      </div>
+      
+
+    </div>
             
     </div>
   );

@@ -107,7 +107,7 @@ const ExpensePopup = ({ open, onClose }) => {
             onChange={handleAmountChange}
             onFocus={handleAmountFocus}
             onBlur={handleAmountBlur}
-            placeholder="Rp. 100.000"
+            placeholder="Amount (e.g. 100000)"
             className="w-full h-12 px-4 rounded border border-gray-300"
             required
           />

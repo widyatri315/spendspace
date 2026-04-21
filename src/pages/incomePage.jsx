@@ -114,9 +114,6 @@ const totalPages = Math.ceil(incomes.length / itemsPerPage);
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-2xl font-bold">Income</h2>
-            <div className="text-sm text-gray-600">
-              Hello, {fullName || user?.email || "User"}
-            </div>
           </div>
 
           <div className="flex items-center gap-2s">
@@ -125,12 +122,6 @@ const totalPages = Math.ceil(incomes.length / itemsPerPage);
               className="px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-md text-sm"
             >
               Add Income
-            </button>
-            <button
-              onClick={() => navigate("/profile")}
-              className="px-3 py-2 border rounded-full text-sm"
-            >
-              Profile
             </button>
           </div>
         </div>

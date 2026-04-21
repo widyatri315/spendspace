@@ -1,9 +1,10 @@
-import React, { useEffect, useState, seCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "../firebase";
-import { getDatabase, ref, onValue } from "firebase/database";
-import ExpensePopup from "./expensePopup.jsx"
+import { getDatabase, ref, onValue, get } from "firebase/database";
+import ExpensePopup from "./expensePopup.jsx";
 import IncomePopup from "./incomePopup.jsx";
+import { useLocation } from "react-router-dom";
 import {
   LineChart,
   Line,
@@ -25,7 +26,7 @@ const formatCurrency = (value) =>
 
 const getCurrentMonth = () => {
   const d = new Date();
-  return d.toISOString().slice(0, 7); // YYYY-MM
+  return d.toISOString().slice(0, 7);
 };
 
 const getPreviousMonth = () => {
@@ -34,30 +35,19 @@ const getPreviousMonth = () => {
   return d.toISOString().slice(0, 7);
 };
 
-const calculateMonthlyTotal = (data, month) => {
-  return Object.values(data || {}).reduce((sum, item) => {
+const calculateMonthlyTotal = (data, month) =>
+  Object.values(data || {}).reduce((sum, item) => {
     if (!item.date || !item.amount) return sum;
     return item.date.startsWith(month)
       ? sum + Number(item.amount)
       : sum;
   }, 0);
-};
 
- 
-
-/**
- * Persentase aman:
- * hasil selalu -100% s/d +100%
- */
 const calculateMonthComparisonPercentage = (current, previous) => {
   if (current === 0 && previous === 0) return 0;
   if (previous === 0 && current > 0) return 100;
   if (current === 0 && previous > 0) return -100;
-
-  const diff = current - previous;
-  const base = Math.max(current, previous);
-
-  return Math.round((diff / base) * 100);
+  return Math.round(((current - previous) / Math.max(current, previous)) * 100);
 };
 
 const groupByMonth = (data) => {
@@ -86,13 +76,32 @@ function Dashboard() {
 
   const [chartData, setChartData] = useState([]);
   const [history, setHistory] = useState([]);
-  const [fullName, setFullName] = useState("");
+  const [userFullName, setUserFullName] = useState("");
+
   const [showIncomePopup, setShowIncomePopup] = useState(false);
-  const [setExpensePopup, setShowExpensePopup] = useState(false);
-  const [openEdit, setOpenEdit] = useState(false);
+  const [showExpensePopup, setShowExpensePopup] = useState(false);
   
 
-  /* ========== TOTAL BULAN INI ========== */
+  /* ===== USER NAME ===== */
+  useEffect(() => {
+    if (!user) return;
+
+    if (user.displayName) {
+      setUserFullName(user.displayName);
+      return;
+    }
+
+    const db = getDatabase();
+    const userRef = ref(db, `users/${user.uid}`);
+
+    get(userRef).then((snap) => {
+      if (snap.exists()) {
+        setUserFullName(snap.val().fullName || "");
+      }
+    });
+  }, [user]);
+
+  /* ===== TOTAL BULAN INI ===== */
   useEffect(() => {
     if (!user) return;
 
@@ -101,162 +110,150 @@ function Dashboard() {
     const expenseRef = ref(db, `expenseList/${user.uid}`);
     const currentMonth = getCurrentMonth();
 
-    const unsubIncome = onValue(incomeRef, (snap) => {
+    const unsub1 = onValue(incomeRef, (snap) =>
       setTotalIncome(
-        snap.exists()
-          ? calculateMonthlyTotal(snap.val(), currentMonth)
-          : 0
-      );
-    });
+        snap.exists() ? calculateMonthlyTotal(snap.val(), currentMonth) : 0
+      )
+    );
 
-    const unsubExpense = onValue(expenseRef, (snap) => {
+    const unsub2 = onValue(expenseRef, (snap) =>
       setTotalExpense(
-        snap.exists()
-          ? calculateMonthlyTotal(snap.val(), currentMonth)
-          : 0
-      );
-    });
+        snap.exists() ? calculateMonthlyTotal(snap.val(), currentMonth) : 0
+      )
+    );
 
     return () => {
-      unsubIncome();
-      unsubExpense();
+      unsub1();
+      unsub2();
     };
   }, [user]);
 
-  /* ========== PERSENTASE INCOME ========== */
+   /* ===== MONTHLY CHART DATA ===== */
+  useEffect(() => {
+  if (!user) return;
+
+  const db = getDatabase();
+  const incomeRef = ref(db, `incomeList/${user.uid}`);
+  const expenseRef = ref(db, `expenseList/${user.uid}`);
+
+  let incomeData = {};
+  let expenseData = {};
+
+  const updateChart = () => {
+    const incomeByMonth = groupByMonth(incomeData);
+    const expenseByMonth = groupByMonth(expenseData);
+
+    const months = new Set([
+      ...Object.keys(incomeByMonth),
+      ...Object.keys(expenseByMonth),
+    ]);
+
+    const data = Array.from(months)
+      .sort()
+      .map((month) => ({
+        month,
+        income: incomeByMonth[month] || 0,
+        expense: expenseByMonth[month] || 0,
+      }));
+
+    setChartData(data);
+  };
+
+  const unsub1 = onValue(incomeRef, (snap) => {
+    incomeData = snap.val() || {};
+    updateChart();
+  });
+
+  const unsub2 = onValue(expenseRef, (snap) => {
+    expenseData = snap.val() || {};
+    updateChart();
+  });
+
+  return () => {
+    unsub1();
+    unsub2();
+  };
+}, [user]);
+
+   /* ===== RECENT TRANSACTIONS (INCOME + EXPENSE) ===== */
   useEffect(() => {
     if (!user) return;
 
     const db = getDatabase();
     const incomeRef = ref(db, `incomeList/${user.uid}`);
+    const expenseRef = ref(db, `expenseList/${user.uid}`);
 
+    const fetchHistory = async () => {
+      const incomeSnap = await get(incomeRef);
+      const expenseSnap = await get(expenseRef);
+
+      const transactions = [];
+
+      // add income
+      if (incomeSnap.exists()) {
+        Object.entries(incomeSnap.val()).forEach(([id, item]) => {
+          transactions.push({
+            id,
+            type: "income",
+            date: item.date,
+            amount: item.amount,
+          });
+        });
+      }
+
+      // add expense
+      if (expenseSnap.exists()) {
+        Object.entries(expenseSnap.val()).forEach(([id, item]) => {
+          transactions.push({
+            id,
+            type: "expense",
+            date: item.date,
+            amount: item.amount,
+          });
+        });
+      }
+
+      // sort by date desc, take 10 latest
+      transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+      setHistory(transactions.slice(0, 10));
+    };
+
+    fetchHistory();
+  }, [user]);
+
+  /* ===== MONTHLY COMPARISON ===== */
+  useEffect(() => {
+    if (!user) return;
+
+    const db = getDatabase();
+    const incomeRef = ref(db, `incomeList/${user.uid}`);
+    const expenseRef = ref(db, `expenseList/${user.uid}`);
     const currentMonth = getCurrentMonth();
     const previousMonth = getPreviousMonth();
 
-    const unsub = onValue(incomeRef, (snap) => {
-      if (!snap.exists()) {
-        setIncomePercentage(0);
-        return;
-      }
-
-      const data = snap.val();
-      const current = calculateMonthlyTotal(data, currentMonth);
-      const previous = calculateMonthlyTotal(data, previousMonth);
-
+    const unsub1 = onValue(incomeRef, (snap) => {
+      const current = calculateMonthlyTotal(snap.val(), currentMonth);
+      const previous = calculateMonthlyTotal(snap.val(), previousMonth);
       setIncomePercentage(
         calculateMonthComparisonPercentage(current, previous)
       );
     });
 
-    return () => unsub();
-  }, [user]);
-
-  /* ========== PERSENTASE EXPENSE ========== */
-  useEffect(() => {
-    if (!user) return;
-
-    const db = getDatabase();
-    const expenseRef = ref(db, `expenseList/${user.uid}`);
-
-    const currentMonth = getCurrentMonth();
-    const previousMonth = getPreviousMonth();
-
-    const unsub = onValue(expenseRef, (snap) => {
-      if (!snap.exists()) {
-        setExpensePercentage(0);
-        return;
-      }
-
-      const data = snap.val();
-      const current = calculateMonthlyTotal(data, currentMonth);
-      const previous = calculateMonthlyTotal(data, previousMonth);
-
+    const unsub2 = onValue(expenseRef, (snap) => {
+      const current = calculateMonthlyTotal(snap.val(), currentMonth);
+      const previous = calculateMonthlyTotal(snap.val(), previousMonth);
       setExpensePercentage(
         calculateMonthComparisonPercentage(current, previous)
       );
     });
 
-    return () => unsub();
-  }, [user]);
+    return () => {
+      unsub1();
+      unsub2();
+    };
+  }, [user]); 
 
-  /*=================History============*/
-  useEffect(() => {
-  if (!user) return;
-
-  const db = getDatabase();
-  const incomeRef = ref(db, `incomeList/${user.uid}`);
-  const expenseRef = ref(db, `expenseList/${user.uid}`);
-
-  const unsubIncome = onValue(incomeRef, (incomeSnap) => {
-    const unsubExpense = onValue(expenseRef, (expenseSnap) => {
-      const incomes = incomeSnap.exists()
-        ? Object.entries(incomeSnap.val()).map(([id, item]) => ({
-            id,
-            type: "income",
-            ...item,
-          }))
-        : [];
-
-      const expenses = expenseSnap.exists()
-        ? Object.entries(expenseSnap.val()).map(([id, item]) => ({
-            id,
-            type: "expense",
-            ...item,
-          }))
-        : [];
-
-      const merged = [...incomes, ...expenses]
-        .filter((item) => item.date)
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
-        .slice(0, 5); //  hanya 10 terbaru
-
-      setHistory(merged);
-    });
-
-    return () => unsubExpense();
-  });
-
-  return () => unsubIncome();
-}, [user]);
-
-  /* ========== BALANCE ========== */
-useEffect(() => {
-  if (!user) return;
-
-  const db = getDatabase();
-  const incomeRef = ref(db, `incomeList/${user.uid}`);
-  const expenseRef = ref(db, `expenseList/${user.uid}`);
-
-  const unsubIncome = onValue(incomeRef, (snap) => {
-    let total = 0;
-    if (snap.exists()) {
-      Object.values(snap.val()).forEach((item) => {
-        total += Number(item.amount || 0);
-      });
-    }
-    setAllTimeIncome(total);
-  });
-
-  const unsubExpense = onValue(expenseRef, (snap) => {
-    let total = 0;
-    if (snap.exists()) {
-      Object.values(snap.val()).forEach((item) => {
-        total += Number(item.amount || 0);
-      });
-    }
-    setAllTimeExpense(total);
-  });
-
-  return () => {
-    unsubIncome();
-    unsubExpense();
-  };
-}, [user]);
-
-    useEffect(() => {
-      setBalance(allTimeIncome - allTimeExpense);
-    }, [allTimeIncome, allTimeExpense]);
-  /* ========== CHART ========== */
+  /* ===== BALANCE ALL TIME ===== */
   useEffect(() => {
     if (!user) return;
 
@@ -264,48 +261,41 @@ useEffect(() => {
     const incomeRef = ref(db, `incomeList/${user.uid}`);
     const expenseRef = ref(db, `expenseList/${user.uid}`);
 
-    const unsubIncome = onValue(incomeRef, (incomeSnap) => {
-      const unsubExpense = onValue(expenseRef, (expenseSnap) => {
-        const incomeMonthly = groupByMonth(
-          incomeSnap.exists() ? incomeSnap.val() : {}
+    const unsub1 = onValue(incomeRef, (snap) => {
+      let total = 0;
+      snap.exists() &&
+        Object.values(snap.val()).forEach(
+          (i) => (total += Number(i.amount || 0))
         );
-        const expenseMonthly = groupByMonth(
-          expenseSnap.exists() ? expenseSnap.val() : {}
-        );
-
-        const months = new Set([
-          ...Object.keys(incomeMonthly),
-          ...Object.keys(expenseMonthly),
-        ]);
-
-        const formatted = Array.from(months)
-          .sort()
-          .map((month) => ({
-            month,
-            income: incomeMonthly[month] || 0,
-            expense: expenseMonthly[month] || 0,
-          }));
-
-        setChartData(formatted);
-      });
-
-      return () => unsubExpense();
+      setAllTimeIncome(total);
     });
 
-    return () => unsubIncome();
+    const unsub2 = onValue(expenseRef, (snap) => {
+      let total = 0;
+      snap.exists() &&
+        Object.values(snap.val()).forEach(
+          (i) => (total += Number(i.amount || 0))
+        );
+      setAllTimeExpense(total);
+    });
+
+    return () => {
+      unsub1();
+      unsub2();
+    };
   }, [user]);
 
+  useEffect(() => {
+    setBalance(allTimeIncome - allTimeExpense);
+  }, [allTimeIncome, allTimeExpense]);
+
   if (loading) return <p>Loading...</p>;
-
-
-  
-
 
   /* ================= UI ================= */
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-2">Greetings 👋 {fullName || user?.email || "User"} </h1>
+      <h1 className="text-2xl font-bold mb-2">Greetings 👋 {userFullName || user?.email} </h1>
       <p className="text-sm mb-4"> Dont waste money, save every penny!</p>
 
       <div className="grid grid-cols-3 gap-4">
@@ -453,8 +443,22 @@ useEffect(() => {
       
 
     </div>
-            
+    {/* RENDER POPUP */}
+    {showIncomePopup && (
+    <IncomePopup
+    open={showIncomePopup}
+    onClose={() => {
+      setShowIncomePopup(false);
+        window.location.reload();}} />)}
+
+    {showExpensePopup && (
+    <ExpensePopup
+    open={showExpensePopup} 
+    onClose={() => {
+      setShowExpensePopup(false);
+        window.location.reload();}} />)}
     </div>
+
   );
 }
 

@@ -1,90 +1,118 @@
 import React, { useEffect, useState } from "react";
-import { auth, db, logout } from "../firebase";
+import { auth } from "../firebase";
+import { getDatabase, ref, get, update } from "firebase/database";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { Link, useNavigate } from "react-router-dom";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 
-const Profile = () => {
-  const [user, loading, error] = useAuthState(auth);
-  const [userDetails, setUserDetails] = useState([]);
-  const navigate = useNavigate();
+function Profile() {
+  const [user] = useAuthState(auth);
+  const db = getDatabase();
 
+  const [form, setForm] = useState({
+    fullName: "",
+    email: "",
+    gender: "",
+    phone: "",
+    address: "",
+    photoURL: "",
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  /* ===== FETCH USER DATA ===== */
   useEffect(() => {
-    const fetchUserDetails = async () => {
-      try {
-        const q = query(collection(db, "users"), where("uid", "==", user?.uid));
-        const doc = await getDocs(q);
-        const data = doc.docs[0].data();
-        console.log(data);
-        setUserDetails(data);
-      } catch (err) {
-        console.error(err);
-        toast.error("An error occurred while fetching user data");
+    if (!user) return;
+
+    const userRef = ref(db, `users/${user.uid}`);
+    get(userRef).then((snap) => {
+      if (snap.exists()) {
+        setForm({
+          fullName: snap.val().fullName || user.displayName || "",
+          email: user.email,
+          gender: snap.val().gender || "",
+          phone: snap.val().phone || "",
+          address: snap.val().address || "",
+          photoURL: snap.val().photoURL || user.photoURL || "",
+        });
       }
-    };
-    if (loading) {
-      return;
-    }
-    if (!user) {
-      return navigate("/login");
-    }
-    fetchUserDetails();
-  }, [loading, navigate, user]);
+      setLoading(false);
+    });
+  }, [user]);
+
+  /* ===== UPDATE PROFILE ===== */
+  const handleSave = async () => {
+    setSaving(true);
+
+    await update(ref(db, `users/${user.uid}`), {
+      fullName: form.fullName,
+      gender: form.gender,
+      phone: form.phone,
+      address: form.address,
+      photoURL: form.photoURL,
+      isProfileComplete: true,
+    });
+
+    setSaving(false);
+    alert("Profile updated successfully ✅");
+  };
+
+  if (loading) return <p>Loading profile...</p>;
 
   return (
-    <div className="flex-col items-center justify-center">
-      {error && error}
-      <div className="flex items-center justify-between py-5">
-        <Link to={"/InputProfile"}>
-          <button className="bg-purple-700 text-white text-xs sm:text-base rounded-full py-2 px-5">
-            Form Page
-          </button>
-        </Link>{" "}
-        <Link to={"/incomePage"}>
-          <button className="bg-purple-700 text-white text-xs sm:text-base rounded-full py-2 px-5">
-            Form Page
-          </button>
-        </Link>{" "}
-        <button
-          onClick={logout}
-          className="bg-purple-700 text-white text-xs sm:text-base rounded-full py-2 px-5"
-        >
-          Logout
-        </button>
-      </div>
-      <h1 className="text-4xl mb-4 text-center">Profile Page</h1>
-      <div className="border-[1px] border-gray-300" />
-      <div className="flex flex-col justify-center bg-gray-100 p-3 sm:p-5 mt-5 rounded-xl ">
-        <div className="flex-col items-center justify-center p-1 sm:p-5">
-          <div className="font-semibold text-lg">
-            Email : <span className="text-purple-500">{userDetails.email}</span>{" "}
-          </div>
-          <div className="font-semibold text-lg">
-            UID : <span className="text-purple-500">{userDetails.uid}</span>
-          </div>
+    <div className="max-w-xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-4">My Profile</h1>
 
-          <div className="font-semibold text-lg">
-            First Name :{" "}
-            <span className="text-purple-500">{userDetails.firstName}</span>{" "}
-          </div>
-          <div className="font-semibold text-lg">
-            Last Name :{" "}
-            <span className="text-purple-500">{userDetails.lastName}</span>
-          </div>
-          <div className="font-semibold text-lg">
-            Age : <span className="text-purple-500">{userDetails.age}</span>{" "}
-          </div>
-          <div className="font-semibold text-lg">
-            Profession :{" "}
-            <span className="text-purple-500">{userDetails.profession}</span>
-          </div>
-        </div>
-        <ToastContainer />
+      <div className="space-y-4">
+        <input
+          type="text"
+          placeholder="Full Name"
+          value={form.fullName}
+          onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          type="email"
+          value={form.email}
+          disabled
+          className="w-full border p-2 rounded bg-gray-100"
+        />
+
+        <select
+          value={form.gender}
+          onChange={(e) => setForm({ ...form, gender: e.target.value })}
+          className="w-full border p-2 rounded"
+        >
+          <option value="">Select Gender</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
+
+        <input
+          type="text"
+          placeholder="Phone Number"
+          value={form.phone}
+          onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          className="w-full border p-2 rounded"
+        />
+
+        <textarea
+          placeholder="Address"
+          value={form.address}
+          onChange={(e) => setForm({ ...form, address: e.target.value })}
+          className="w-full border p-2 rounded"
+        />
+
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="bg-blue-600 text-white px-4 py-2 rounded w-full"
+        >
+          {saving ? "Saving..." : "Save Profile"}
+        </button>
       </div>
     </div>
   );
-};
+}
 
 export default Profile;

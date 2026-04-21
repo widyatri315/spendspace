@@ -5,6 +5,7 @@ import incomeIcon from "../assets/income.png";
 import toggle_icon from "../assets/sidebarClose.png";
 import logoutIcon from "../assets/logout.png";
 import homeIcon from "../assets/home.png";
+import profileIcon from "../assets/Facebook.png"
 import { auth, db, logout } from "../firebase";
 
 const Sidebar = () => {
@@ -16,6 +17,7 @@ const Sidebar = () => {
   { title: "Dashboard", src: homeIcon, path: "/dashboard" },
   { title: "Income", src: incomeIcon, path: "/incomePage" },
   { title: "Expense", src: expenseIcon, path: "/expensePage" },
+  { title: "profile", src: profileIcon, path: "/profile"}
 ];
 
  const logoutMenu = 

@@ -65,7 +65,7 @@ const Login = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray px-4">
       <div className="bg-white w-full max-w-md md:max-w-lg rounded-lg shadow-lg p-6 md:p-8">
         <h1 className="text-2xl text-gray-800 text-center font-bold mb-2">
-          Welcome Back!
+          Spendspace for your financial management
         </h1>
         <p className="text-gray-500 leading-5 text-center mb-4">
           Sign-in to continue

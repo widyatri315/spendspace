@@ -9,6 +9,7 @@ import IncomePopup from "./pages/incomePopup";
 import ExpensePage from "./pages/expensePage";
 import ExpensePopup from "./pages/expensePopup";
 import Dashboard from "./pages/dashboard";
+import BudgetPage from "./pages/budgetPage";
 
 import DashboardLayout from "./components/DashboardLayout";
 import { RegisterProvider } from "./context/RegisterContext";
@@ -38,6 +39,7 @@ function App() {
           <Route path="/incomePopup" element={<IncomePopup />} />
           <Route path="/expensePage" element={<ExpensePage />} />
           <Route path="/expensePopup" element={<ExpensePopup />} />
+          <Route path="/budgetPage" element={<BudgetPage />} />
         </Route>
 
         {/* DEFAULT */}

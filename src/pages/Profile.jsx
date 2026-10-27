@@ -37,7 +37,7 @@ function Profile() {
       }
       setLoading(false);
     });
-  }, [user]);
+  }, [user, db]);
 
   /* ===== UPDATE PROFILE ===== */
   const handleSave = async () => {

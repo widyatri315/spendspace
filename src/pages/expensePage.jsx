@@ -54,7 +54,6 @@ function ExpensePage() {
 
   /* ================= FILTER ================= */
 
-  const [search, setSearch] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
   const [selectedMonth, setSelectedMonth] =
@@ -320,7 +319,7 @@ function ExpensePage() {
         <div className="mt-4">
           <button
             onClick={() => {
-              setSearch("");
+              setSearchTerm("");
               setSelectedMonth("");
               setSelectedCategory("");
               setCurrentPage(1);

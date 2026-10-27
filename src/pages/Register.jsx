@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthState } from "react-firebase-hooks/auth";
-import { auth, signInWithGoogle } from "../firebase";
+import {
+  auth,
+  getGoogleSignInErrorMessage,
+  signInWithGoogle,
+} from "../firebase";
 import {
   createUserWithEmailAndPassword,
-  updateProfile, sendEmailVerification
+  sendEmailVerification,
+  updateProfile,
 } from "firebase/auth";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -57,8 +62,17 @@ const Register = () => {
     } catch (err) {
       if (err.code === "auth/email-already-in-use") {
         toast.error("Email already registered");
+      } else if (err.code === "auth/weak-password") {
+        toast.error("Password must be at least 8 characters.");
+      } else if (err.code === "auth/operation-not-allowed") {
+        toast.error("Email/password sign-in is disabled in Firebase Authentication.");
+      } else if (err.code === "auth/invalid-email") {
+        toast.error("Enter a valid email address.");
+      } else if (auth.currentUser && !auth.currentUser.emailVerified) {
+        toast.error("Account created, but the verification link could not be sent. Retry on the verification page.");
+        navigate("/verify");
       } else {
-        toast.error("Register failed");
+        toast.error(`Register failed (${err.code || "unknown error"}).`);
       }
     }
   };
@@ -66,8 +80,18 @@ const Register = () => {
   // 🔁 AUTO REDIRECT IF LOGGED IN
   useEffect(() => {
     if (loading) return;
-    if (user) navigate("/");
+    if (user) navigate(user.emailVerified ? "/dashboard" : "/verify");
   }, [user, loading, navigate]);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      if (err.code !== "auth/popup-closed-by-user") {
+        toast.error(getGoogleSignInErrorMessage(err));
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray px-4">
@@ -156,7 +180,7 @@ const Register = () => {
         </div>
 
         <button
-          onClick={signInWithGoogle}
+          onClick={handleGoogleSignIn}
           className="w-full h-12 bg-white border rounded-full mt-3 flex items-center justify-center gap-3"
         >
           <img

@@ -2,7 +2,11 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MdArrowBackIos } from "react-icons/md";
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai";
-import { auth, signInWithGoogle } from "../firebase.js";
+import {
+  auth,
+  getGoogleSignInErrorMessage,
+  signInWithGoogle,
+} from "../firebase.js";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { ToastContainer, toast } from "react-toastify";
@@ -53,9 +57,19 @@ const Login = () => {
       return;
     }
     if (user) {
-      navigate("/incomePage");
+      navigate(user.emailVerified ? "/incomePage" : "/verify");
     }
   }, [user, loading, navigate]);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      if (err.code !== "auth/popup-closed-by-user") {
+        toast.error(getGoogleSignInErrorMessage(err));
+      }
+    }
+  };
 
   const handleChange = (e) => {
     setData({ ...Data, [e.target.name]: e.target.value });
@@ -130,7 +144,7 @@ const Login = () => {
           <button
             type="button"
             className="w-full h-12 bg-gray-100 text-black text-base font-medium rounded-full flex items-center justify-center gap-3"
-            onClick={() => signInWithGoogle()}
+            onClick={handleGoogleSignIn}
           >
             <img
               src="https://cdn-icons-png.flaticon.com/128/2991/2991148.png"

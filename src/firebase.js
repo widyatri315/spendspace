@@ -24,14 +24,21 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 const googleProvider = new GoogleAuthProvider();
-const signInWithGoogle = async () => {
-  try {
-    const res = await signInWithPopup(auth, googleProvider);
-    const user = res.user;
-    console.log(user);
-  } catch (err) {
-    console.error(err);
-    alert(err.message);
+const signInWithGoogle = () => signInWithPopup(auth, googleProvider);
+const getGoogleSignInErrorMessage = (error) => {
+  switch (error.code) {
+    case "auth/operation-not-allowed":
+      return "Google sign-in is disabled. Enable the Google provider in Firebase Authentication.";
+    case "auth/unauthorized-domain":
+      return "This domain is not authorized. Add localhost or your website domain in Firebase Authentication settings.";
+    case "auth/popup-blocked":
+      return "The sign-in popup was blocked. Allow popups and try again.";
+    case "auth/account-exists-with-different-credential":
+      return "An account already exists with this email. Sign in using its existing method.";
+    case "auth/network-request-failed":
+      return "Network request failed. Check your connection and try again.";
+    default:
+      return `Google sign-in failed (${error.code || "unknown error"}).`;
   }
 };
 
@@ -51,5 +58,13 @@ const logout = () => {
   signOut(auth);
 };
 
-export { app, auth, db, signInWithGoogle, signInWithGithub, logout };
+export {
+  app,
+  auth,
+  db,
+  signInWithGoogle,
+  getGoogleSignInErrorMessage,
+  signInWithGithub,
+  logout,
+};
 export default app;

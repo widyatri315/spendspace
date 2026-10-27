@@ -32,6 +32,7 @@ function IncomePage() {
   /* FILTER */
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("all");
+  const [selectedSource, setSelectedSource] = useState("all");
 
   /* PAGINATION */
   const [currentPage, setCurrentPage] = useState(1);
@@ -124,7 +125,7 @@ function IncomePage() {
   };
 
   /* ================= FILTER ================= */
-  const filteredIncomes = incomes.filter((item) => {
+  const baseFilteredIncomes = incomes.filter((item) => {
     const matchSearch =
       item.description
         ?.toLowerCase()
@@ -141,10 +142,29 @@ function IncomePage() {
     return matchSearch && matchMonth;
   });
 
+  const filteredIncomes = baseFilteredIncomes.filter((item) => {
+    if (selectedSource === "all") return true;
+    return item.sourceCategory === selectedSource;
+  });
+
   /* ================= TOTAL ================= */
   const totalIncome = filteredIncomes.reduce(
     (sum, item) => sum + Number(item.amount || 0),
     0
+  );
+
+  const sourceOptions = [
+    ...new Set(incomes.map((item) => item.sourceCategory).filter(Boolean)),
+  ].sort();
+
+  const sourceTotals = baseFilteredIncomes.reduce(
+    (acc, item) => {
+      if (!item.sourceCategory) return acc;
+      acc[item.sourceCategory] =
+        (acc[item.sourceCategory] || 0) + Number(item.amount || 0);
+      return acc;
+    },
+    {}
   );
 
   /* ================= MONTH OPTIONS ================= */
@@ -201,7 +221,7 @@ function IncomePage() {
               className="border rounded-lg px-4 py-2 w-full md:w-1/2"
             />
 
-            {/* MONTH FILTER */}
+
             <select
               value={selectedMonth}
               onChange={(e) => {
@@ -228,19 +248,39 @@ function IncomePage() {
 
         {/* ================= SUMMARY ================= */}
         <div className="mb-4">
-          <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between">
+          <div className="bg-white rounded-lg shadow p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <div className="text-sm text-gray-500">
                 Total Income
               </div>
 
               <div className="text-2xl font-bold">
-                {formatCurrency(totalIncome)}
+                {selectedSource === 'all'
+                  ? formatCurrency(totalIncome)
+                  : formatCurrency(sourceTotals[selectedSource] || 0)}
               </div>
             </div>
 
-            <div className="text-sm text-gray-500">
-              {filteredIncomes.length} records
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-gray-500">
+                {filteredIncomes.length} records
+              </div>
+
+              <select
+                value={selectedSource}
+                onChange={(e) => {
+                  setSelectedSource(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="border rounded-lg px-3 py-2"
+              >
+                <option value="all">All Sources</option>
+                {sourceOptions.map((source) => (
+                  <option key={source} value={source}>
+                    {source}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>

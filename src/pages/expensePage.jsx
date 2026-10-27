@@ -63,6 +63,9 @@ function ExpensePage() {
   const [selectedCategory, setSelectedCategory] =
     useState("");
 
+  const [selectedSource, setSelectedSource] =
+    useState("all");
+
   /* ================= PAGINATION ================= */
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -111,47 +114,51 @@ function ExpensePage() {
 
   /* ================= FILTERED DATA ================= */
 
-  const filteredExpenses = expenses.filter(
-    (expense) => {
-     const matchSearch =
-        expense.description
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        expense.expenseCategory
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        expense.sourceCategory
-          ?.toLowerCase()
-          .includes(searchTerm.toLowerCase());
-     
-      
+  const baseFilteredExpenses = expenses.filter((expense) => {
+    const matchSearch =
+      expense.description
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      expense.expenseCategory
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      expense.sourceCategory
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase());
 
-      const matchMonth = selectedMonth
-        ? expense.date?.slice(0, 7) ===
-          selectedMonth
-        : true;
+    const matchMonth = selectedMonth
+      ? expense.date?.slice(0, 7) === selectedMonth
+      : true;
 
-      const matchCategory = selectedCategory
-        ? expense.expenseCategory ===
-          selectedCategory
-        : true;
+    const matchCategory = selectedCategory
+      ? expense.expenseCategory === selectedCategory
+      : true;
 
-      return (
-        matchSearch &&
-        matchMonth &&
-        matchCategory
-      );
-    }
-  );
+    return matchSearch && matchMonth && matchCategory;
+  });
+
+  const filteredExpenses = baseFilteredExpenses.filter((expense) => {
+    if (selectedSource === "all") return true;
+    return expense.sourceCategory === selectedSource;
+  });
 
   /* ================= TOTAL ================= */
 
-  const filteredTotalExpense =
-    filteredExpenses.reduce(
-      (sum, item) =>
-        sum + Number(item.amount || 0),
-      0
-    );
+  const filteredTotalExpense = baseFilteredExpenses.reduce(
+    (sum, item) => sum + Number(item.amount || 0),
+    0
+  );
+
+  const sourceOptions = [
+    ...new Set(expenses.map((e) => e.sourceCategory).filter(Boolean)),
+  ].sort();
+
+  const sourceTotals = baseFilteredExpenses.reduce((acc, item) => {
+    if (!item.sourceCategory) return acc;
+    acc[item.sourceCategory] =
+      (acc[item.sourceCategory] || 0) + Number(item.amount || 0);
+    return acc;
+  }, {});
 
   /* ================= PAGINATION ================= */
 
@@ -217,21 +224,39 @@ function ExpensePage() {
       {/* ================= SUMMARY ================= */}
 
       <div className="mb-4">
-        <div className="bg-white rounded-lg shadow p-4 flex justify-between">
+        <div className="bg-white rounded-lg shadow p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <div className="text-sm text-gray-500">
               Total Expense
             </div>
 
             <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(
-                filteredTotalExpense
-              )}
+              {selectedSource === 'all'
+                ? formatCurrency(filteredTotalExpense)
+                : formatCurrency(sourceTotals[selectedSource] || 0)}
             </div>
           </div>
 
-          <div className="text-sm text-gray-500">
-            {filteredExpenses.length} records
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-gray-500">
+              {filteredExpenses.length} records
+            </div>
+
+            <select
+              value={selectedSource}
+              onChange={(e) => {
+                setSelectedSource(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="border rounded-lg px-3 py-2"
+            >
+              <option value="all">All Sources</option>
+              {sourceOptions.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>

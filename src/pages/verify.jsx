@@ -1,78 +1,88 @@
 import React, { useEffect, useState } from "react";
+import { useAuthState } from "react-firebase-hooks/auth";
 import { auth } from "../firebase";
 import { sendEmailVerification } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { useRegister } from "../context/RegisterContext";
-import { toast } from "react-toastify";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const Verify = () => {
-  const { registerData } = useRegister();
   const navigate = useNavigate();
+  const [user, loading] = useAuthState(auth);
   const [sending, setSending] = useState(false);
-  const [verified, setVerified] = useState(false);
+  const [checking, setChecking] = useState(false);
 
-  // kirim email verification
-  const sendVerification = async () => {
+  const sendVerificationLink = async () => {
     try {
       setSending(true);
-      await sendEmailVerification(auth.currentUser);
-      toast.success("Verification email sent!");
+      await sendEmailVerification(user);
+      toast.success("Verification link sent to your email.");
     } catch (err) {
-      toast.error("Failed to send verification email");
+      toast.error(`Could not send the verification link (${err.code || "unknown error"}).`);
     } finally {
       setSending(false);
     }
   };
 
-  // cek status verifikasi
   const checkVerification = async () => {
-    await auth.currentUser.reload();
-    if (auth.currentUser.emailVerified) {
-      setVerified(true);
-      navigate("/dashboard");
-    } else {
-      toast.warning("Email not verified yet");
+    try {
+      setChecking(true);
+      await user.reload();
+      if (user.emailVerified) {
+        await user.getIdToken(true);
+        navigate("/dashboard");
+      } else {
+        toast.warning("Email is not verified yet. Open the link in your inbox first.");
+      }
+    } catch (err) {
+      toast.error("Could not check email verification. Please try again.");
+    } finally {
+      setChecking(false);
     }
   };
 
-  // proteksi page
   useEffect(() => {
-    if (!auth.currentUser || !registerData?.email) {
+    if (loading) return;
+    if (!user) {
       navigate("/register");
+    } else if (user.emailVerified) {
+      navigate("/dashboard");
     }
-  }, [navigate, registerData]);
+  }, [loading, navigate, user]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="bg-white w-full max-w-md rounded-xl shadow p-6 text-center">
-
         <h1 className="text-2xl font-semibold mb-2">
           Verify Your Email
         </h1>
 
         <p className="text-gray-600 mb-6">
-          We have sent a verification link to:
+          Open the verification link sent to:
           <br />
           <span className="font-medium text-black">
-            {registerData?.email}
+            {user?.email}
           </span>
         </p>
 
         <button
-          onClick={sendVerification}
-          disabled={sending}
-          className="w-full h-12 bg-purple-500 hover:bg-purple-600 text-white rounded-full mb-3 disabled:opacity-50"
+          type="button"
+          onClick={sendVerificationLink}
+          disabled={sending || loading || !user}
+          className="w-full h-12 border border-purple-500 text-purple-500 rounded-full mt-3 disabled:opacity-50"
         >
-          {sending ? "Sending..." : "Resend Verification Email"}
+          {sending ? "Sending..." : "Resend verification link"}
         </button>
 
         <button
+          type="button"
           onClick={checkVerification}
-          className="w-full h-12 border border-purple-500 text-purple-500 rounded-full"
+          disabled={checking || loading || !user}
+          className="w-full h-12 bg-purple-500 hover:bg-purple-600 text-white rounded-full mt-3 disabled:opacity-50"
         >
-          I Have Verified
+          {checking ? "Checking..." : "I have verified"}
         </button>
-
+        <ToastContainer />
       </div>
     </div>
   );

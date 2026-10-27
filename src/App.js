@@ -14,7 +14,7 @@ import BudgetPage from "./pages/budgetPage";
 import DashboardLayout from "./components/DashboardLayout";
 import { RegisterProvider } from "./context/RegisterContext";
 import Verify from "./pages/verify";
-import { useLocation } from "react-router-dom";
+import ProtectedRoute from "./routes/ProtectedRoute";
 
 function App() {
  
@@ -32,7 +32,7 @@ function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
 
         {/* DASHBOARD PAGES (WITH SIDEBAR) */}
-        <Route element={<DashboardLayout />}>
+        <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/incomePage" element={<IncomePage />} />

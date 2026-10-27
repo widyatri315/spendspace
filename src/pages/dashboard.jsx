@@ -11,6 +11,7 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  Legend,
   ResponsiveContainer,
 } from "recharts";
 
@@ -20,6 +21,14 @@ const formatCurrency = (value) =>
     style: "currency",
     currency: "IDR",
     maximumFractionDigits: 0,
+  }).format(value || 0);
+
+const formatCompactCurrency = (value) =>
+  new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    notation: "compact",
+    maximumFractionDigits: 1,
   }).format(value || 0);
 
 const getCurrentMonth = () => new Date().toISOString().slice(0, 7);
@@ -66,6 +75,7 @@ function Dashboard() {
   const [incomePercentage, setIncomePercentage] = useState(0);
   const [expensePercentage, setExpensePercentage] = useState(0);
   const [chartData, setChartData] = useState([]);
+  const [sourceBalances, setSourceBalances] = useState([]);
   const [history, setHistory] = useState([]);
   const [userFullName, setUserFullName] = useState("");
   const [showIncomePopup, setShowIncomePopup] = useState(false);
@@ -213,6 +223,56 @@ function Dashboard() {
     return () => {
       unsub1();
       unsub2();
+    };
+  }, [user]);
+
+  /* ================= SOURCE BALANCES ================= */
+  useEffect(() => {
+    if (!user) {
+      setSourceBalances([]);
+      return;
+    }
+
+    const db = getDatabase();
+    const incomeRef = ref(db, `incomeList/${user.uid}`);
+    const expenseRef = ref(db, `expenseList/${user.uid}`);
+    let incomeData = {};
+    let expenseData = {};
+
+    const updateSourceBalances = () => {
+      const balances = {};
+      const addTransactions = (transactions, type) => {
+        Object.values(transactions).forEach((item) => {
+          const source = item.sourceCategory?.trim() || "Tanpa source";
+          if (!balances[source]) {
+            balances[source] = { source, income: 0, expense: 0 };
+          }
+          balances[source][type] += Number(item.amount || 0);
+        });
+      };
+
+      addTransactions(incomeData, "income");
+      addTransactions(expenseData, "expense");
+
+      setSourceBalances(
+        Object.values(balances).sort((a, b) =>
+          a.source.localeCompare(b.source, "id")
+        )
+      );
+    };
+
+    const unsubIncome = onValue(incomeRef, (snap) => {
+      incomeData = snap.val() || {};
+      updateSourceBalances();
+    });
+    const unsubExpense = onValue(expenseRef, (snap) => {
+      expenseData = snap.val() || {};
+      updateSourceBalances();
+    });
+
+    return () => {
+      unsubIncome();
+      unsubExpense();
     };
   }, [user]);
 
@@ -505,49 +565,82 @@ return (
     <div className="mt-6 grid grid-cols-1 lg:grid-cols-4 gap-4">
       
       {/* CHART */}
-      <div className="bg-white p-4 rounded-lg shadow lg:col-span-3">
-        <div className="flex items-center justify-between mb-4">
+      <div className="min-w-0 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5 lg:col-span-3">
+        <div className="mb-2 flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-semibold text-lg">
+            <h2 className="font-semibold text-base text-gray-800 sm:text-lg">
               Monthly Financial Chart
             </h2>
 
-            <p className="text-sm text-gray-500">
+            <p className="mt-1 text-xs text-gray-500 sm:text-sm">
               Income vs Expense overview
             </p>
           </div>
 
-          <div className="text-sm text-gray-500">
+          <div className="shrink-0 rounded-full bg-gray-50 px-3 py-1 text-xs font-medium text-gray-500">
             {getCurrentMonth()}
           </div>
         </div>
 
-        <ResponsiveContainer width="100%" height={320}>
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-
-            <XAxis dataKey="month" />
-
-            <YAxis />
-
-            <Tooltip
-              formatter={(value) =>
-                formatCurrency(value)
+        <ResponsiveContainer width="100%" height={220}>
+          <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
+            <CartesianGrid vertical={false} stroke="#f1f5f9" />
+            <XAxis
+              dataKey="month"
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: "#94a3b8", fontSize: 11 }}
+              tickMargin={10}
+              tickFormatter={(month) =>
+                new Date(`${month}-02T00:00:00`).toLocaleDateString("id-ID", {
+                  month: "short",
+                  year: "2-digit",
+                })
               }
             />
-
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fill: "#94a3b8", fontSize: 10 }}
+              tickFormatter={formatCompactCurrency}
+              width={58}
+            />
+            <Tooltip
+              formatter={(value) => formatCurrency(value)}
+              labelFormatter={(month) =>
+                new Date(`${month}-02T00:00:00`).toLocaleDateString("id-ID", {
+                  month: "long",
+                  year: "numeric",
+                })
+              }
+              contentStyle={{
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+                fontSize: "12px",
+              }}
+              labelStyle={{ color: "#475569", fontWeight: 600 }}
+            />
+            <Legend
+              iconType="circle"
+              iconSize={7}
+              wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }}
+            />
             <Line
               type="monotone"
               dataKey="income"
               stroke="#16a34a"
-              strokeWidth={3}
+              strokeWidth={2.5}
+              dot={false}
+              activeDot={{ r: 4, strokeWidth: 0 }}
             />
-
             <Line
               type="monotone"
               dataKey="expense"
               stroke="#dc2626"
-              strokeWidth={3}
+              strokeWidth={2.5}
+              dot={false}
+              activeDot={{ r: 4, strokeWidth: 0 }}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -659,6 +752,64 @@ return (
         </div>
       </div>
     </div>
+
+    {/* ================= SOURCE BALANCES ================= */}
+    <section className="mt-6 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
+      <div className="mb-4">
+        <h2 className="font-semibold text-gray-800 sm:text-lg">
+          Sisa Uang per Source
+        </h2>
+        <p className="mt-1 text-xs text-gray-500 sm:text-sm">
+          Total pemasukan dikurangi total pengeluaran untuk setiap sumber dana.
+        </p>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead>
+            <tr className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-500">
+              <th scope="col" className="py-3 pr-4 text-left font-medium">Source</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium">Pemasukan</th>
+              <th scope="col" className="px-4 py-3 text-right font-medium">Pengeluaran</th>
+              <th scope="col" className="py-3 pl-4 text-right font-medium">Sisa saldo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sourceBalances.length === 0 ? (
+              <tr>
+                <td colSpan="4" className="py-8 text-center text-gray-400">
+                  Belum ada transaksi untuk ditampilkan.
+                </td>
+              </tr>
+            ) : (
+              sourceBalances.map(({ source, income, expense }) => {
+                const remaining = income - expense;
+                return (
+                  <tr key={source} className="border-b border-gray-50 last:border-0">
+                    <th scope="row" className="py-3 pr-4 text-left font-medium text-gray-700">
+                      {source}
+                    </th>
+                    <td className="px-4 py-3 text-right whitespace-nowrap text-green-700">
+                      {formatCurrency(income)}
+                    </td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap text-red-600">
+                      {formatCurrency(expense)}
+                    </td>
+                    <td
+                      className={`py-3 pl-4 text-right whitespace-nowrap font-semibold ${
+                        remaining >= 0 ? "text-blue-700" : "text-red-600"
+                      }`}
+                    >
+                      {formatCurrency(remaining)}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     {/* ================= POPUPS ================= */}
     {showIncomePopup && (
